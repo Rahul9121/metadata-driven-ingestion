@@ -1,0 +1,80 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Lint
+        run: ruff check src tests
+
+      - name: Test
+        run: pytest -q
+
+      - name: Validate config
+        run: python -m mdif validate --config config/pipeline.yaml
+
+      - name: Run pipeline end-to-end
+        env:
+          MDIF_API_TOKEN: demo-token-not-a-secret
+        run: |
+          python -m mdif run --config config/pipeline.yaml
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("data/state/last_run.json").read_text())
+          by = {s["name"]: s for s in data["sources"]}
+          assert by["broken_feed"]["status"] == "failed", by["broken_feed"]
+          assert by["downstream_of_broken"]["status"] == "skipped", by["downstream_of_broken"]
+          assert by["products_http"]["status"] in {"success", "success_with_rejections"}
+          assert by["products_http"]["rows_loaded"] >= 1
+          assert len(by["products_http"]["attempts"]) >= 2
+          print("e2e assertions ok")
+          PY
+
+      - name: Build report
+        run: python -m mdif report --out docs
+
+      - name: Upload pages artifact
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
