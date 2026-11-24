@@ -49,9 +49,61 @@ svg.lineage { width: 100%; height: auto; background: #070a16; border-radius: 8px
 .note { color: var(--muted); font-size: .9rem; }
 footer { padding: 1rem 1.5rem 2rem; color: var(--muted); font-size: .85rem; border-top: 1px solid var(--border); }
 a { color: var(--cyan); }
+.overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(5, 6, 15, 0.82);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+}
+.overlay[hidden] { display: none !important; }
+.alert-box {
+  width: min(560px, 100%);
+  background: var(--card);
+  border: 1px solid var(--cyan);
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px rgba(0,240,255,.12), 0 18px 50px rgba(0,0,0,.55);
+  padding: 1.25rem 1.35rem 1.1rem;
+}
+.alert-box h2 {
+  margin: 0 0 .65rem; color: var(--cyan); font-size: 1.15rem; letter-spacing: .02em;
+}
+.alert-box p { margin: 0 0 .7rem; color: var(--text); font-size: .95rem; }
+.alert-box ul { margin: 0 0 1rem; padding-left: 1.15rem; color: var(--muted); font-size: .9rem; }
+.alert-box li { margin: .25rem 0; }
+.alert-box .actions { display: flex; gap: .6rem; flex-wrap: wrap; justify-content: flex-end; }
+.alert-box button {
+  cursor: pointer; border-radius: 999px; padding: .45rem .95rem; font-size: .9rem;
+  border: 1px solid var(--border); background: transparent; color: var(--text);
+}
+.alert-box button.primary {
+  border-color: var(--cyan); background: rgba(0,240,255,.12); color: var(--cyan); font-weight: 600;
+}
+.alert-box button:hover { border-color: var(--lime); color: var(--lime); }
+.alert-chip {
+  display: inline-block; margin-bottom: .75rem; padding: .15rem .55rem; border-radius: 999px;
+  border: 1px solid var(--magenta); color: var(--magenta); font-size: .75rem;
+}
 </style>
 </head>
 <body>
+<div id="intro-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="intro-title">
+  <div class="alert-box">
+    <div class="alert-chip">portfolio project · not Azure Data Factory</div>
+    <h2 id="intro-title">What you are looking at</h2>
+    <p>This is a <strong>Metadata-Driven Ingestion Framework</strong> I built in Python. Pipelines are described in YAML. The engine validates config, runs sources, retries transient failures, quarantines bad rows, and loads DuckDB.</p>
+    <p>It follows an <strong>Azure Data Factory style pattern</strong>, but it is <strong>not</strong> ADF. There are no Azure resources, no integration runtime, and no cloud triggers. Everything here runs offline against fixtures and a local mock HTTP API.</p>
+    <ul>
+      <li>Lineage graph: source to target and dependencies</li>
+      <li>Status table: rows read, loaded, rejected, attempts</li>
+      <li>Retry timeline: mock API fails, then succeeds</li>
+      <li>Quarantine + failed source with skipped downstream steps</li>
+    </ul>
+    <div class="actions">
+      <button type="button" id="intro-dismiss">Got it</button>
+      <button type="button" class="primary" id="intro-start">View report</button>
+    </div>
+  </div>
+</div>
 <header>
   <h1>Metadata-Driven Ingestion <span>Framework</span></h1>
   <p class="sub">Python re-creation of an Azure Data Factory style metadata-driven pattern. Not Azure Data Factory. No Azure resources. Offline fixtures and a local mock HTTP API.</p>
@@ -101,7 +153,20 @@ a { color: var(--cyan); }
   Report generated from a local pipeline run. Source: <span class="mono">report.json</span>
 </footer>
 <script>
+function setupIntroAlert(){
+  const overlay = document.getElementById('intro-overlay');
+  if(!overlay) return;
+  const hide = () => { overlay.hidden = true; document.body.style.overflow = ''; };
+  const show = () => { overlay.hidden = false; document.body.style.overflow = 'hidden'; };
+  // Always show once per page open so visitors get the project context.
+  show();
+  document.getElementById('intro-dismiss')?.addEventListener('click', hide);
+  document.getElementById('intro-start')?.addEventListener('click', hide);
+  overlay.addEventListener('click', (e) => { if(e.target === overlay) hide(); });
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hide(); });
+}
 async function boot() {
+  setupIntroAlert();
   const res = await fetch('report.json');
   const data = await res.json();
   document.getElementById('run-status').textContent = `run ${data.run_id} · ${data.status} · ${data.duration_ms} ms`;
