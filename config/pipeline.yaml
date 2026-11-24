@@ -1,0 +1,159 @@
+pipeline:
+  name: demo_ingestion
+  description: Offline ADF-style metadata-driven ingestion demo
+  parameters:
+    run_date: "2024-06-15"
+    api_token_env: "MDIF_API_TOKEN"
+  concurrency: 3
+  state_dir: data/state
+  raw_dir: data/raw
+  quarantine_dir: data/quarantine
+  db_path: data/state/warehouse.duckdb
+
+sources:
+  - name: customers_csv
+    type: csv
+    path: fixtures/csv/customers.csv
+    target: dim_customers
+    load_mode: full
+    on_failure: quarantine
+    retry:
+      attempts: 2
+      backoff_base_seconds: 0.1
+      backoff_max_seconds: 1
+      jitter: true
+      timeout_seconds: 10
+    validation:
+      schema:
+        customer_id: integer
+        name: string
+        email: string
+        country: string
+        signup_date: string
+      not_null: [customer_id, email]
+      unique: [customer_id]
+
+  - name: orders_json
+    type: json
+    path: fixtures/json/orders.json
+    target: fact_orders
+    load_mode: incremental
+    watermark_column: order_ts
+    depends_on: [customers_csv]
+    on_failure: quarantine
+    retry:
+      attempts: 2
+      backoff_base_seconds: 0.1
+      backoff_max_seconds: 1
+      jitter: true
+      timeout_seconds: 10
+    validation:
+      schema:
+        order_id: integer
+        customer_id: integer
+        amount: number
+        order_ts: string
+        status: string
+      not_null: [order_id, customer_id, amount]
+      ranges:
+        amount:
+          min: 0
+          max: 100000
+      unique: [order_id]
+    condition:
+      type: rows_gt
+      source: customers_csv
+      value: 0
+
+  - name: products_http
+    type: http
+    url: "http://127.0.0.1:8765/products"
+    target: dim_products
+    load_mode: full
+    on_failure: quarantine
+    headers:
+      Authorization: "Bearer ${MDIF_API_TOKEN}"
+    retry:
+      attempts: 5
+      backoff_base_seconds: 0.15
+      backoff_max_seconds: 2
+      jitter: true
+      timeout_seconds: 10
+    validation:
+      schema:
+        product_id: integer
+        sku: string
+        name: string
+        price: number
+      not_null: [product_id, sku]
+      ranges:
+        price:
+          min: 0
+          max: 50000
+      unique: [product_id]
+
+  - name: inventory_foreach
+    type: csv
+    path: fixtures/csv/inventory_{item}.csv
+    target: fact_inventory
+    load_mode: full
+    depends_on: [products_http]
+    on_failure: quarantine
+    foreach:
+      items: [a, b]
+      param: item
+    retry:
+      attempts: 2
+      backoff_base_seconds: 0.1
+      backoff_max_seconds: 1
+      jitter: false
+      timeout_seconds: 10
+    validation:
+      schema:
+        sku: string
+        warehouse: string
+        qty: integer
+      not_null: [sku, warehouse, qty]
+      ranges:
+        qty:
+          min: 0
+          max: 1000000
+
+  - name: broken_feed
+    description: Deliberately failing fixture to show permanent error and skipped downstream
+    type: csv
+    path: fixtures/csv/broken_feed.csv
+    target: stg_broken
+    load_mode: full
+    expected_fail: true
+    on_failure: fail
+    retry:
+      attempts: 2
+      backoff_base_seconds: 0.05
+      backoff_max_seconds: 0.2
+      jitter: false
+      timeout_seconds: 5
+    validation:
+      schema:
+        id: integer
+        value: number
+      not_null: [id, value]
+
+  - name: downstream_of_broken
+    type: json
+    path: fixtures/json/downstream.json
+    target: stg_downstream
+    load_mode: full
+    depends_on: [broken_feed]
+    on_failure: skip
+    retry:
+      attempts: 1
+      backoff_base_seconds: 0.05
+      backoff_max_seconds: 0.1
+      jitter: false
+      timeout_seconds: 5
+    validation:
+      schema:
+        id: integer
+        note: string
+      not_null: [id]

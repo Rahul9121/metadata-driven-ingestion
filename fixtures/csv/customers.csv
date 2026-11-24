@@ -1,0 +1,8 @@
+customer_id,name,email,country,signup_date
+1,Ada Lovelace,ada@example.com,UK,2024-01-10
+2,Alan Turing,alan@example.com,UK,2024-01-12
+3,Grace Hopper,grace@example.com,US,2024-02-01
+4,Donald Knuth,don@example.com,US,2024-02-15
+5,Barbara Liskov,barb@example.com,US,2024-03-01
+6,,missing@example.com,IN,2024-03-10
+7,Bad Range,bad@example.com,DE,2024-03-11

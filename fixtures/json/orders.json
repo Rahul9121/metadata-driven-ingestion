@@ -1,0 +1,9 @@
+[
+  {"order_id": 1001, "customer_id": 1, "amount": 120.5, "order_ts": "2024-06-01T10:00:00", "status": "paid"},
+  {"order_id": 1002, "customer_id": 2, "amount": 45.0, "order_ts": "2024-06-02T11:30:00", "status": "paid"},
+  {"order_id": 1003, "customer_id": 3, "amount": 999.99, "order_ts": "2024-06-03T09:15:00", "status": "pending"},
+  {"order_id": 1004, "customer_id": 1, "amount": -5.0, "order_ts": "2024-06-04T08:00:00", "status": "refund"},
+  {"order_id": 1005, "customer_id": 4, "amount": 250.0, "order_ts": "2024-06-05T14:20:00", "status": "paid"},
+  {"order_id": 1006, "customer_id": 5, "amount": 15.25, "order_ts": "2024-06-06T16:45:00", "status": "paid"},
+  {"order_id": 1007, "customer_id": null, "amount": 10.0, "order_ts": "2024-06-07T12:00:00", "status": "paid"}
+]

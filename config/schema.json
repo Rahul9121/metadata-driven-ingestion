@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mdif-pipeline",
+  "title": "MDIF Pipeline",
+  "type": "object",
+  "required": ["pipeline", "sources"],
+  "additionalProperties": false,
+  "properties": {
+    "pipeline": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number", "boolean", "null"] }
+        },
+        "concurrency": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "state_dir": { "type": "string" },
+        "raw_dir": { "type": "string" },
+        "quarantine_dir": { "type": "string" },
+        "db_path": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/source" }
+    }
+  },
+  "$defs": {
+    "retry": {
+      "type": "object",
+      "properties": {
+        "attempts": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "backoff_base_seconds": { "type": "number", "minimum": 0 },
+        "backoff_max_seconds": { "type": "number", "minimum": 0 },
+        "jitter": { "type": "boolean" },
+        "timeout_seconds": { "type": "number", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["string", "integer", "number", "boolean", "datetime"]
+          }
+        },
+        "not_null": { "type": "array", "items": { "type": "string" } },
+        "ranges": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "min": { "type": "number" },
+              "max": { "type": "number" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "unique": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": ["name", "type", "target"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "enum": ["csv", "json", "http"] },
+        "path": { "type": "string" },
+        "url": { "type": "string" },
+        "method": { "type": "string", "enum": ["GET", "POST"] },
+        "headers": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "target": { "type": "string", "minLength": 1 },
+        "load_mode": { "type": "string", "enum": ["full", "incremental"] },
+        "watermark_column": { "type": "string" },
+        "depends_on": { "type": "array", "items": { "type": "string" } },
+        "on_failure": { "type": "string", "enum": ["fail", "skip", "quarantine"] },
+        "retry": { "$ref": "#/$defs/retry" },
+        "validation": { "$ref": "#/$defs/validation" },
+        "condition": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["rows_gt", "always"] },
+            "source": { "type": "string" },
+            "value": { "type": "number" }
+          },
+          "additionalProperties": false
+        },
+        "foreach": {
+          "type": "object",
+          "properties": {
+            "items": { "type": "array", "items": { "type": ["string", "number"] } },
+            "param": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "expected_fail": { "type": "boolean" },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "const": "http" } }
+          },
+          "then": { "required": ["url"] }
+        },
+        {
+          "if": {
+            "required": ["type"],
+            "properties": { "type": { "enum": ["csv", "json"] } }
+          },
+          "then": { "required": ["path"] }
+        },
+        {
+          "if": {
+            "required": ["load_mode"],
+            "properties": { "load_mode": { "const": "incremental" } }
+          },
+          "then": { "required": ["watermark_column"] }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,4 @@
+[
+  {"id": 1, "note": "should be skipped when broken_feed fails"},
+  {"id": 2, "note": "downstream never runs on permanent upstream failure"}
+]
