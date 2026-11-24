@@ -1,0 +1,539 @@
+{
+  "run_id": "eb98f6ab-6b50-4bfd-ae96-71789b82cdef",
+  "status": "success_with_expected_failures",
+  "duration_ms": 2549.85,
+  "generated_at": "2026-11-24T06:54:00.406851+00:00",
+  "pipeline": {
+    "name": "demo_ingestion",
+    "description": "Offline ADF-style metadata-driven ingestion demo",
+    "parameters": {
+      "run_date": "2024-06-15",
+      "api_token_env": "MDIF_API_TOKEN"
+    },
+    "concurrency": 3,
+    "state_dir": "data/state",
+    "raw_dir": "data/raw",
+    "quarantine_dir": "data/quarantine",
+    "db_path": "data/state/warehouse.duckdb"
+  },
+  "lineage": [
+    {
+      "from": "customers_csv",
+      "to": "dim_customers",
+      "kind": "load"
+    },
+    {
+      "from": "orders_json",
+      "to": "fact_orders",
+      "kind": "load"
+    },
+    {
+      "from": "customers_csv",
+      "to": "orders_json",
+      "kind": "depends_on"
+    },
+    {
+      "from": "products_http",
+      "to": "dim_products",
+      "kind": "load"
+    },
+    {
+      "from": "inventory_foreach",
+      "to": "fact_inventory",
+      "kind": "load"
+    },
+    {
+      "from": "products_http",
+      "to": "inventory_foreach",
+      "kind": "depends_on"
+    },
+    {
+      "from": "broken_feed",
+      "to": "stg_broken",
+      "kind": "load"
+    },
+    {
+      "from": "downstream_of_broken",
+      "to": "stg_downstream",
+      "kind": "load"
+    },
+    {
+      "from": "broken_feed",
+      "to": "downstream_of_broken",
+      "kind": "depends_on"
+    }
+  ],
+  "sources": [
+    {
+      "name": "customers_csv",
+      "status": "success",
+      "target": "dim_customers",
+      "rows_read": 7,
+      "rows_loaded": 7,
+      "rows_rejected": 0,
+      "attempts": [
+        {
+          "attempt": 1,
+          "status": "success",
+          "error_class": null,
+          "error_message": null,
+          "duration_ms": 8.78,
+          "slept_ms": 0.0
+        }
+      ],
+      "error_class": null,
+      "error_message": null,
+      "duration_ms": 65.71,
+      "skipped_reason": null,
+      "yaml_snippet": {
+        "name": "customers_csv",
+        "type": "csv",
+        "path": "fixtures/csv/customers.csv",
+        "target": "dim_customers",
+        "load_mode": "full",
+        "on_failure": "quarantine",
+        "retry": {
+          "attempts": 2,
+          "backoff_base_seconds": 0.1,
+          "backoff_max_seconds": 1,
+          "jitter": true,
+          "timeout_seconds": 10
+        },
+        "validation": {
+          "schema": {
+            "customer_id": "integer",
+            "name": "string",
+            "email": "string",
+            "country": "string",
+            "signup_date": "string"
+          },
+          "not_null": [
+            "customer_id",
+            "email"
+          ],
+          "unique": [
+            "customer_id"
+          ]
+        },
+        "depends_on": [],
+        "expected_fail": false
+      }
+    },
+    {
+      "name": "broken_feed",
+      "status": "failed",
+      "target": "stg_broken",
+      "rows_read": 2,
+      "rows_loaded": 0,
+      "rows_rejected": 2,
+      "attempts": [
+        {
+          "attempt": 1,
+          "status": "success",
+          "error_class": null,
+          "error_message": null,
+          "duration_ms": 9.51,
+          "slept_ms": 0.0
+        }
+      ],
+      "error_class": "validation",
+      "error_message": "All 2 rows failed validation",
+      "duration_ms": 70.26,
+      "skipped_reason": null,
+      "yaml_snippet": {
+        "name": "broken_feed",
+        "description": "Deliberately failing fixture to show permanent error and skipped downstream",
+        "type": "csv",
+        "path": "fixtures/csv/broken_feed.csv",
+        "target": "stg_broken",
+        "load_mode": "full",
+        "expected_fail": true,
+        "on_failure": "fail",
+        "retry": {
+          "attempts": 2,
+          "backoff_base_seconds": 0.05,
+          "backoff_max_seconds": 0.2,
+          "jitter": false,
+          "timeout_seconds": 5
+        },
+        "validation": {
+          "schema": {
+            "id": "integer",
+            "value": "number"
+          },
+          "not_null": [
+            "id",
+            "value"
+          ]
+        },
+        "depends_on": []
+      }
+    },
+    {
+      "name": "products_http",
+      "status": "success",
+      "target": "dim_products",
+      "rows_read": 4,
+      "rows_loaded": 4,
+      "rows_rejected": 0,
+      "attempts": [
+        {
+          "attempt": 1,
+          "status": "failed",
+          "error_class": "transient",
+          "error_message": "HTTP 503 from http://127.0.0.1:8765/products: {\"error\":\"temporarily unavailable\"}",
+          "duration_ms": 10.77,
+          "slept_ms": 171.73
+        },
+        {
+          "attempt": 2,
+          "status": "failed",
+          "error_class": "transient",
+          "error_message": "HTTP 503 from http://127.0.0.1:8765/products: {\"error\":\"temporarily unavailable\"}",
+          "duration_ms": 27.7,
+          "slept_ms": 395.44
+        },
+        {
+          "attempt": 3,
+          "status": "failed",
+          "error_class": "transient",
+          "error_message": "HTTP 429 from http://127.0.0.1:8765/products: {\"error\":\"rate limited 429\"}",
+          "duration_ms": 12.23,
+          "slept_ms": 396.19
+        },
+        {
+          "attempt": 4,
+          "status": "failed",
+          "error_class": "transient",
+          "error_message": "Malformed API payload flagged by mock server",
+          "duration_ms": 19.84,
+          "slept_ms": 1223.42
+        },
+        {
+          "attempt": 5,
+          "status": "success",
+          "error_class": null,
+          "error_message": null,
+          "duration_ms": 26.22,
+          "slept_ms": 0.0
+        }
+      ],
+      "error_class": null,
+      "error_message": null,
+      "duration_ms": 2317.62,
+      "skipped_reason": null,
+      "yaml_snippet": {
+        "name": "products_http",
+        "type": "http",
+        "url": "http://127.0.0.1:8765/products",
+        "target": "dim_products",
+        "load_mode": "full",
+        "on_failure": "quarantine",
+        "headers": {
+          "Authorization": "Bearer demo-token-not-a-secret"
+        },
+        "retry": {
+          "attempts": 5,
+          "backoff_base_seconds": 0.15,
+          "backoff_max_seconds": 2,
+          "jitter": true,
+          "timeout_seconds": 10
+        },
+        "validation": {
+          "schema": {
+            "product_id": "integer",
+            "sku": "string",
+            "name": "string",
+            "price": "number"
+          },
+          "not_null": [
+            "product_id",
+            "sku"
+          ],
+          "ranges": {
+            "price": {
+              "min": 0,
+              "max": 50000
+            }
+          },
+          "unique": [
+            "product_id"
+          ]
+        },
+        "depends_on": [],
+        "expected_fail": false
+      }
+    },
+    {
+      "name": "downstream_of_broken",
+      "status": "skipped",
+      "target": "stg_downstream",
+      "rows_read": 0,
+      "rows_loaded": 0,
+      "rows_rejected": 0,
+      "attempts": [],
+      "error_class": "dependency",
+      "error_message": "dependency 'broken_feed' status=failed",
+      "duration_ms": 0.0,
+      "skipped_reason": "dependency 'broken_feed' status=failed",
+      "yaml_snippet": {
+        "name": "downstream_of_broken",
+        "type": "json",
+        "path": "fixtures/json/downstream.json",
+        "target": "stg_downstream",
+        "load_mode": "full",
+        "depends_on": [
+          "broken_feed"
+        ],
+        "on_failure": "skip",
+        "retry": {
+          "attempts": 1,
+          "backoff_base_seconds": 0.05,
+          "backoff_max_seconds": 0.1,
+          "jitter": false,
+          "timeout_seconds": 5
+        },
+        "validation": {
+          "schema": {
+            "id": "integer",
+            "note": "string"
+          },
+          "not_null": [
+            "id"
+          ]
+        },
+        "expected_fail": false
+      }
+    },
+    {
+      "name": "inventory_foreach",
+      "status": "success",
+      "target": "fact_inventory",
+      "rows_read": 6,
+      "rows_loaded": 6,
+      "rows_rejected": 0,
+      "attempts": [
+        {
+          "attempt": 1,
+          "status": "success",
+          "error_class": null,
+          "error_message": null,
+          "duration_ms": 4.36,
+          "slept_ms": 0.0
+        }
+      ],
+      "error_class": null,
+      "error_message": null,
+      "duration_ms": 24.67,
+      "skipped_reason": null,
+      "yaml_snippet": {
+        "name": "inventory_foreach",
+        "type": "csv",
+        "path": "fixtures/csv/inventory_{item}.csv",
+        "target": "fact_inventory",
+        "load_mode": "full",
+        "depends_on": [
+          "products_http"
+        ],
+        "on_failure": "quarantine",
+        "foreach": {
+          "items": [
+            "a",
+            "b"
+          ],
+          "param": "item"
+        },
+        "retry": {
+          "attempts": 2,
+          "backoff_base_seconds": 0.1,
+          "backoff_max_seconds": 1,
+          "jitter": false,
+          "timeout_seconds": 10
+        },
+        "validation": {
+          "schema": {
+            "sku": "string",
+            "warehouse": "string",
+            "qty": "integer"
+          },
+          "not_null": [
+            "sku",
+            "warehouse",
+            "qty"
+          ],
+          "ranges": {
+            "qty": {
+              "min": 0,
+              "max": 1000000
+            }
+          }
+        },
+        "expected_fail": false
+      }
+    },
+    {
+      "name": "orders_json",
+      "status": "success_with_rejections",
+      "target": "fact_orders",
+      "rows_read": 7,
+      "rows_loaded": 5,
+      "rows_rejected": 2,
+      "attempts": [
+        {
+          "attempt": 1,
+          "status": "success",
+          "error_class": null,
+          "error_message": null,
+          "duration_ms": 1.16,
+          "slept_ms": 0.0
+        }
+      ],
+      "error_class": null,
+      "error_message": null,
+      "duration_ms": 65.26,
+      "skipped_reason": null,
+      "yaml_snippet": {
+        "name": "orders_json",
+        "type": "json",
+        "path": "fixtures/json/orders.json",
+        "target": "fact_orders",
+        "load_mode": "incremental",
+        "watermark_column": "order_ts",
+        "depends_on": [
+          "customers_csv"
+        ],
+        "on_failure": "quarantine",
+        "retry": {
+          "attempts": 2,
+          "backoff_base_seconds": 0.1,
+          "backoff_max_seconds": 1,
+          "jitter": true,
+          "timeout_seconds": 10
+        },
+        "validation": {
+          "schema": {
+            "order_id": "integer",
+            "customer_id": "integer",
+            "amount": "number",
+            "order_ts": "string",
+            "status": "string"
+          },
+          "not_null": [
+            "order_id",
+            "customer_id",
+            "amount"
+          ],
+          "ranges": {
+            "amount": {
+              "min": 0,
+              "max": 100000
+            }
+          },
+          "unique": [
+            "order_id"
+          ]
+        },
+        "condition": {
+          "type": "rows_gt",
+          "source": "customers_csv",
+          "value": 0
+        },
+        "expected_fail": false
+      }
+    }
+  ],
+  "quarantine": [
+    {
+      "id": null,
+      "value": null,
+      "quarantine_reason": "id not integer; value not number; id is null; value is null",
+      "_source": "broken_feed"
+    },
+    {
+      "id": null,
+      "value": null,
+      "quarantine_reason": "id not integer; value not number; id is null; value is null",
+      "_source": "broken_feed"
+    },
+    {
+      "order_id": 1004,
+      "customer_id": 1,
+      "amount": -5.0,
+      "order_ts": "2024-06-04T08:00:00",
+      "status": "refund",
+      "quarantine_reason": "amount < 0",
+      "_source": "orders_json"
+    },
+    {
+      "order_id": 1007,
+      "customer_id": null,
+      "amount": 10.0,
+      "order_ts": "2024-06-07T12:00:00",
+      "status": "paid",
+      "quarantine_reason": "customer_id is null",
+      "_source": "orders_json"
+    }
+  ],
+  "adf_mapping": [
+    {
+      "adf": "Pipeline",
+      "here": "YAML pipeline block + runner",
+      "status": "implemented (simplified)"
+    },
+    {
+      "adf": "Copy activity",
+      "here": "Source extract + validate + load to DuckDB/Parquet",
+      "status": "implemented (simplified)"
+    },
+    {
+      "adf": "ForEach",
+      "here": "foreach items over file partitions",
+      "status": "implemented (list only)"
+    },
+    {
+      "adf": "If condition",
+      "here": "condition.rows_gt on upstream load counts",
+      "status": "implemented (minimal)"
+    },
+    {
+      "adf": "Linked service",
+      "here": "source type + path/url; secrets via ${ENV}",
+      "status": "pattern only"
+    },
+    {
+      "adf": "Dataset",
+      "here": "source path/url + target table name",
+      "status": "implemented (simplified)"
+    },
+    {
+      "adf": "Parameters",
+      "here": "pipeline.parameters (e.g. run_date)",
+      "status": "implemented"
+    },
+    {
+      "adf": "Retry policy",
+      "here": "attempts, exponential backoff, jitter, timeout",
+      "status": "implemented"
+    },
+    {
+      "adf": "Triggers",
+      "here": "CLI / CI schedule only",
+      "status": "not implemented"
+    },
+    {
+      "adf": "Integration runtime",
+      "here": "in-process Python thread pool",
+      "status": "not implemented (no IR)"
+    },
+    {
+      "adf": "Monitoring",
+      "here": "structured run log + static HTML report",
+      "status": "implemented (offline report)"
+    },
+    {
+      "adf": "Azure resources",
+      "here": "none \u2014 local DuckDB, files, mock HTTP",
+      "status": "not implemented"
+    }
+  ]
+}
